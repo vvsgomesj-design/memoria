@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="pt-BR">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jogo da Memória — Priorizar-se</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --navy: #0f2c59;
+      --navy-deep: #091d3d;
+      --cyan: #2980b9;
+      --cyan-bright: #45b9df;
+      --ink: #15325e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      width: 100%;
+      min-height: 100vh;
+      font-family: "DM Sans", sans-serif;
+      color: var(--ink);
+      overflow-x: hidden;
+      background-color: #f4fbff;
+    }
+
+    .game-shell {
+      width: 100%;
+      min-height: 100vh;
+      background-image:
+        radial-gradient(circle at 7% 4%, rgba(69, 185, 223, .2) 0 2px, transparent 2.5px),
+        radial-gradient(circle at 93% 96%, rgba(41, 128, 185, .15) 0 2px, transparent 2.5px);
+      background-size: 28px 28px, 34px 34px;
+    }
+
+    .topbar {
+      background: linear-gradient(112deg, #091d3d 0%, #0f2c59 62%, #17477b 100%);
+      box-shadow: 0 8px 22px rgba(9, 29, 61, .18);
+    }
+
+    .brand-text-logo {
+      font-weight: 700;
+      color: #fff;
+      font-size: 1.1rem;
+      letter-spacing: -.01em;
+    }
+
+    .score-chip {
+      min-width: 110px;
+      border: 1px solid rgba(161, 228, 246, .32);
+      background: rgba(255,255,255,.08);
+      border-radius: 12px;
+      padding: .45rem .72rem;
+    }
+
+    .score-number {
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.05rem;
+      line-height: 1.1;
+    }
+
+    .score-caption {
+      color: #a9dff0;
+      font-size: .67rem;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .action-button {
+      min-height: 40px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: .45rem;
+      padding: .55rem .82rem;
+      transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+      cursor: pointer;
+    }
+
+    .action-button:hover { transform: translateY(-2px); }
+
+    .memory-grid {
+      display: grid;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: .55rem;
+    }
+
+    /* Estrutura correta para o giro 3D funcionar no clique */
+    .memory-card {
+      background-color: transparent;
+      border: none;
+      padding: 0;
+      aspect-ratio: .78 / 1;
+      perspective: 1000px;
+      cursor: pointer;
+    }
+
+    .card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      text-align: center;
+      transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1);
+      transform-style: preserve-3d;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(15, 44, 89, 0.12);
+    }
+
+    .memory-card.is-open .card-inner,
+    .memory-card.is-matched .card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .card-front, .card-back {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 0.4rem;
+    }
+
+    /* Verso da carta (quando fechada) */
+    .card-front {
+      background: linear-gradient(145deg, #0d2852, #164c82);
+      border: 2px solid #45b9df;
+      color: #fff;
+    }
+
+    .card-front-title {
+      font-size: clamp(0.55rem, 0.8vw, 0.75rem);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #d9f5fc;
+    }
+
+    /* Frente da carta (quando aberta com a frase e o desenho) */
+    .card-back {
+      background: #fff;
+      border: 2px solid #42a9d0;
+      color: #0f2c59;
+      transform: rotateY(180deg);
+      justify-content: space-between;
+    }
+
+    .card-brand-top {
+      font-size: 0.55rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #2980b9;
+      letter-spacing: 0.05em;
+    }
+
+    .card-icon-area {
+      flex-grow: 1;
+      display: grid;
+      place-items: center;
+      width: 100%;
+    }
+
+    .card-icon-area svg {
+      width: clamp(24px, 2.8vw, 34px);
+      height: clamp(24px, 2.8vw, 34px);
+      stroke-width: 1.8;
+      color: #0f2c59;
+    }
+
+    .card-phrase {
+      font-size: clamp(0.5rem, 0.75vw, 0.7rem);
+      font-weight: 700;
+      line-height: 1.15;
+      color: #0f2c59;
+      text-align: center;
+      word-break: break-word;
+      margin-bottom: 0.1rem;
+    }
+
+    .memory-card.is-matched {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .completion-overlay {
+      background: rgba(7, 25, 53, .78);
+      backdrop-filter: blur(5px);
+    }
+
+    @media (max-width: 1050px) {
+      .memory-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+    }
+    @media (max-width: 740px) {
+      .memory-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .45rem; }
+    }
+    @media (max-width: 430px) {
+      .memory-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+  </style>
+ </head>
+ <body>
+  <div class="game-shell">
+   <header class="topbar px-4 py-4 md:px-7">
+    <div class="topbar-content mx-auto flex w-full max-w-[1500px] flex-wrap items-center justify-between gap-4">
+     <div class="flex items-center gap-3">
+      <div class="brand-text-logo">Priorizar-se</div>
+     </div>
+     <div class="topbar-actions flex flex-wrap items-center gap-2 sm:gap-3">
+      <div class="score-chip">
+       <div id="pairs-count" class="score-number">0/15</div>
+       <div class="score-caption">Pares</div>
+      </div>
+      <div class="score-chip">
+       <div id="attempts-count" class="score-number">0</div>
+       <div class="score-caption">Tentativas</div>
+      </div>
+      <button id="restart-button" type="button" class="action-button border-0 bg-cyan-400 font-bold text-slate-950 hover:bg-cyan-300">
+       <i data-lucide="refresh-cw" width="16" height="16"></i> Reiniciar
+      </button>
+     </div>
+    </div>
+   </header>
+   <main class="game-main mx-auto w-full max-w-[1500px] px-4 py-6 md:px-7 md:py-8">
+    <section class="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+     <div>
+      <p class="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[.18em] text-sky-700">
+       <span class="inline-block h-2 w-2 rounded-full bg-cyan-500"></span> Pausa para cuidar de si
+      </p>
+      <h1 class="font-['Fraunces'] text-2xl font-bold text-slate-900 md:text-3xl">Jogo da Memória — Autocuidado</h1>
+     </div>
+     <p class="max-w-xl text-sm leading-relaxed text-slate-600">Clique nas cartas para virar de duas em duas, encontrar os pares correspondentes e exercitar seu bem-estar.</p>
+    </section>
+    <section aria-label="Cartas do jogo da memória">
+     <div id="memory-grid" class="memory-grid"></div>
+    </section>
+   </main>
+   <div id="completion-overlay" class="completion-overlay fixed inset-0 z-50 hidden items-center justify-center p-5" role="dialog" aria-modal="true">
+    <div class="relative w-full max-w-lg overflow-hidden rounded-3xl bg-white px-7 py-10 text-center md:px-12 shadow-2xl">
+     <div class="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full bg-sky-100 text-cyan-700">
+      <i data-lucide="heart-handshake" width="34" height="34"></i>
+     </div>
+     <h2 class="font-['Fraunces'] text-2xl font-bold text-slate-900">Parabéns!</h2>
+     <p class="mx-auto mt-4 max-w-sm leading-relaxed text-slate-600">Você completou todos os pares e priorizou o seu espaço emocional hoje.</p>
+     <button id="play-again-button" type="button" class="action-button mx-auto mt-7 border-0 bg-[#0f2c59] px-5 font-bold text-white hover:bg-[#17477b]">
+      <i data-lucide="rotate-ccw" width="17" height="17"></i> Jogar Novamente
+     </button>
+    </div>
+   </div>
+  </div>
+
+  <script>
+    const cardDataList = [
+      { text: "EU ME AMO", icon: "heart" },
+      { text: "EU ME RESPEITO", icon: "shield" },
+      { text: "SOU SUFICIENTE", icon: "sparkles" },
+      { text: "MEREÇO PAZ", icon: "feather" },
+      { text: "CUIDO DE MIM", icon: "smile" },
+      { text: "MEU ESPAÇO IMPORTA", icon: "home" },
+      { text: "DIZER NÃO É AMOR", icon: "lock" },
+      { text: "RESPIRO E CONFIO", icon: "wind" },
+      { text: "MEU CORPO É LAR", icon: "sun" },
+      { text: "ME PERMITO PAUSA", icon: "moon" },
+      { text: "SOU PACIENTE", icon: "flower-2" },
+      { text: "VALORIZO MEU RITMO", icon: "clock" },
+      { text: "ME ACEITO", icon: "check-circle" },
+      { text: "CRIO LIMITES", icon: "slash" },
+      { text: "OLHO COM CARINHO", icon: "eye" }
+    ];
+
+    let firstCard = null;
+    let secondCard = null;
+    let lockBoard = false;
+    let matchesCount = 0;
+    let attemptsCount = 0;
+
+    const grid = document.getElementById("memory-grid");
+    const pairsDisplay = document.getElementById("pairs-count");
+    const attemptsDisplay = document.getElementById("attempts-count");
+    const overlay = document.getElementById("completion-overlay");
+
+    function shuffle(array) {
+      let currentIndex = array.length, randomIndex;
+      while (currentIndex !== 0) {
+        randomIndex = Math.floor(Math.random() * currentIndex);
+        currentIndex--;
+        [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+      }
+      return array;
+    }
+
+    function initGame() {
+      grid.innerHTML = "";
+      firstCard = null;
+      secondCard = null;
+      lockBoard = false;
+      matchesCount = 0;
+      attemptsCount = 0;
+      pairsDisplay.textContent = `0/${cardDataList.length}`;
+      attemptsDisplay.textContent = "0";
+      overlay.classList.add("hidden");
+      overlay.classList.remove("flex");
+
+      const duplicatedCards = [...cardDataList, ...cardDataList];
+      const randomizedCards = shuffle(duplicatedCards);
+
+      randomizedCards.forEach((item, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "memory-card";
+        button.dataset.name = item.text;
+
+        button.innerHTML = `
+          <div class="card-inner">
+            <div class="card-front">
+              <span class="card-front-title">Priorizar-se</span>
+            </div>
+            <div class="card-back">
+              <span class="card-brand-top">Priorizar-se</span>
+              <div class="card-icon-area">
+                <i data-lucide="${item.icon}"></i>
+              </div>
+              <span class="card-phrase">${item.text}</span>
+            </div>
+          </div>
+        `;
+
+        button.addEventListener("click", () => flipCard(button));
+        grid.appendChild(button);
+      });
+
+      lucide.createIcons();
+    }
+
+    function flipCard(card) {
+      if (lockBoard) return;
+      if (card === firstCard) return;
+      if (card.classList.contains("is-matched")) return;
+
+      card.classList.add("is-open");
+
+      if (!firstCard) {
+        firstCard = card;
+        return;
+      }
+
+      secondCard = card;
+      attemptsCount++;
+      attemptsDisplay.textContent = attemptsCount;
+      checkForMatch();
+    }
+
+    function checkForMatch() {
+      const isMatch = firstCard.dataset.name === secondCard.dataset.name;
+
+      if (isMatch) {
+        disableCards();
+      } else {
+        unflipCards();
+      }
+    }
+
+    function disableCards() {
+      firstCard.classList.add("is-matched");
+      secondCard.classList.add("is-matched");
+      matchesCount++;
+      pairsDisplay.textContent = `${matchesCount}/${cardDataList.length}`;
+
+      resetBoard();
+
+      if (matchesCount === cardDataList.length) {
+        setTimeout(() => {
+          overlay.classList.remove("hidden");
+          overlay.classList.add("flex");
+        }, 500);
+      }
+    }
+
+    function unflipCards() {
+      lockBoard = true;
+      setTimeout(() => {
+        firstCard.classList.remove("is-open");
+        secondCard.classList.remove("is-open");
+        resetBoard();
+      }, 1000);
+    }
+
+    function resetBoard() {
+      [firstCard, secondCard, lockBoard] = [null, null, false];
+    }
+
+    document.getElementById("restart-button").addEventListener("click", initGame);
+    document.getElementById("play-again-button").addEventListener("click", initGame);
+
+    initGame();
+  </script>
+ </body>
+</html>
